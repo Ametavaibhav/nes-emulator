@@ -1,0 +1,14 @@
+#+TITLE: NES Emulator
+#+DESCRIPTION: The source code to link to rest of the files
+#+AUTHOR: Vai
+---
+* TODO catchup on NES in Rust doc [[https://www.nesdev.org/NESDoc.pdf]]
+* TODO catchup on NES doc [[https://www.nesdev.org/NESDoc.pdf]]
+
+* Important Links
+[[https://www.notion.so/NES-Emulator-736a83e705f74e9e8a626a243e6076d4][Notion Documentation]]
+[[https://bugzmanov.github.io/nes_ebook/chapter_1.html][Guide: NES Emulator in Rust]]
+[[https://bugzmanov.github.io/nes_ebook/chapter_1.html][NES Documentation]]
+[[https://www.nesdev.org/wiki/NES_reference_guide][NES Dev Wiki]]
+
+
