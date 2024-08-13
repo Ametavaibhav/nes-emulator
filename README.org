@@ -1,0 +1,9 @@
+#+TITLE: NES Emulator
+#+DESCRIPTION: README file for the project
+#+CREATED: Aug 13, 2024
+
+* Important Links
+ + [[https://www.notion.so/NES-Emulator-736a83e705f74e9e8a626a243e6076d4][Notion Documentation]]
+ + [[https://bugzmanov.github.io/nes_ebook/chapter_1.html][Guide: NES Emulator in Rust]]
+ + [[https://www.nesdev.org/NESDoc.pdf][NES Documentation]]
+ + [[https://www.nesdev.org/wiki/NES_reference_guide][NES Dev Wiki]]
