@@ -8,5 +8,7 @@
  + [[https://www.nesdev.org/NESDoc.pdf][NES Documentation]]
  + [[https://www.nesdev.org/wiki/NES_reference_guide][NES Dev Wiki]]
 
-* Current State
- + have not setup for the duplication/copying of memory (for eg. the 2KB memory, that's mirroed, or the program ROM data being mirrored). Not a focus right now, will get back to it later.
+* 🚧 WIP 🚧
+ - nothing has been tested yet. testing all the instructions will be the next step.
+
+this project is to learn harware emulation. I chose NES, because it has some of my favorite games. Any suggestions to improve the code are welcome.
