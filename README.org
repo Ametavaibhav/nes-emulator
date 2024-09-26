@@ -7,3 +7,6 @@
  + [[https://bugzmanov.github.io/nes_ebook/chapter_1.html][Guide: NES Emulator in Rust]]
  + [[https://www.nesdev.org/NESDoc.pdf][NES Documentation]]
  + [[https://www.nesdev.org/wiki/NES_reference_guide][NES Dev Wiki]]
+
+* Current State
+ + have not setup for the duplication/copying of memory (for eg. the 2KB memory, that's mirroed, or the program ROM data being mirrored). Not a focus right now, will get back to it later.
