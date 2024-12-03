@@ -13,10 +13,11 @@ class Memory:
         return self.memory[address]
 
 
-    def write_memory(self, address: int, value):
+    def write_memory(self, address: int, value: int):
         if isinstance(value, int):
-            return self.memory[address] = value
+            self.memory[address] = value
         elif isinstance(value, list):
-            return self.memory[address: address + len(value)] = value
+            self.memory[address: address + len(value)] = value
         else:
             raise Exception(f"unexpected value type!")
+        return
