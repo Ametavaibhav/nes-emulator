@@ -1,4 +1,4 @@
-from memory.memory import Memory
+from memory import Memory
 from instructions import addressing_modes, instructions
 
 

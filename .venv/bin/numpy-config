@@ -1,4 +1,4 @@
-#!/home/vaibhav/personal/nes_emulator/.venv/bin/python
+#!/Users/vaii/Home/Projects/nes-emulator/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

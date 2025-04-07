@@ -1,4 +1,4 @@
-from cpu import cpu
+from cpu import CPU
 
 def test_cpu():
     a = []
