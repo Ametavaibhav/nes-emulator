@@ -1,4 +1,4 @@
-from instructions import addressing_modes, instructions
+from src.instructions import addressing_modes, instructions
 
 addressingModes = addressing_modes.AddressingModes()
 instruct = instructions.Instructions()
@@ -94,7 +94,7 @@ OPCODE_TABLE = {
 
     0xE6: (instruct.INC, addressingModes.zero_page),
     0xF6: (instruct.INC, addressingModes.zero_page_x),
-    0xEE: (instruct.INC, addressingModes.absolulte),
+    0xEE: (instruct.INC, addressingModes.absolute),
     0xFE: (instruct.INC, addressingModes.absolute_x),
 
     0xE8: (instruct.INX, addressingModes.implicit),
@@ -102,12 +102,12 @@ OPCODE_TABLE = {
     0xC8: (instruct.INY, addressingModes.implicit),
 
     0x4C: (instruct.JMP, addressingModes.absolute),
-    0x6C: (instruct.INC, addressingModes.indirect),
+    0x6C: (instruct.JMP, addressingModes.indirect),
 
     0x20: (instruct.JSR, addressingModes.absolute),
 
     0xA9: (instruct.LDA, addressingModes.immediate),
-    0xA5: (instruct.LDA, addressingModes.zerop_page),
+    0xA5: (instruct.LDA, addressingModes.zero_page),
     0xB5: (instruct.LDA, addressingModes.zero_page_x),
     0xAD: (instruct.LDA, addressingModes.absolute),
     0xBD: (instruct.LDA, addressingModes.absolute_x),
@@ -168,14 +168,14 @@ OPCODE_TABLE = {
 
     0x60: (instruct.RTS, addressingModes.implicit),
 
-    0xE9: (instruct.SRC, addressingModes.immediate),
-    0xE5: (instruct.SRC, addressingModes.zero_page),
-    0xF5: (instruct.SRC, addressingModes.zero_page_x),
-    0xED: (instruct.SRC, addressingModes.absolute),
-    0xFD: (instruct.SRC, addressingModes.absolute_x),
-    0xF9: (instruct.SRC, addressingModes.absolute_y),
-    0xE1: (instruct.SRC, addressingModes.indexed_indirect),
-    0xF1: (instruct.SRC, addressingModes.indirect_indexed),
+    0xE9: (instruct.SBC, addressingModes.immediate),
+    0xE5: (instruct.SBC, addressingModes.zero_page),
+    0xF5: (instruct.SBC, addressingModes.zero_page_x),
+    0xED: (instruct.SBC, addressingModes.absolute),
+    0xFD: (instruct.SBC, addressingModes.absolute_x),
+    0xF9: (instruct.SBC, addressingModes.absolute_y),
+    0xE1: (instruct.SBC, addressingModes.indexed_indirect),
+    0xF1: (instruct.SBC, addressingModes.indirect_indexed),
 
     0x38: (instruct.SEC, addressingModes.implicit),
 
@@ -192,7 +192,7 @@ OPCODE_TABLE = {
     0x91: (instruct.STA, addressingModes.indirect_indexed),
 
     0x86: (instruct.STX, addressingModes.zero_page),
-    0x96: (instruct.STX, addressingModes.zero_page_x),
+    0x96: (instruct.STX, addressingModes.zero_page_y),
     0x8E: (instruct.STX, addressingModes.absolute),
 
     0x84: (instruct.STY, addressingModes.zero_page),

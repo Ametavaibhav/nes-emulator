@@ -1,3 +1,7 @@
 .venv
 .idea
 src/*/__pycache__
+tests/data/65x02
+.DS_Store
+*/.DS_Store
+

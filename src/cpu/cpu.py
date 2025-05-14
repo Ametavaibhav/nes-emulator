@@ -1,12 +1,13 @@
-from memory import Memory
-from instructions import addressing_modes, instructions
+from src.memory import Memory
+from src.instructions.opcode_table import OPCODE_TABLE
 
 
 class CPU(Memory):
     def __init__(self):
         ## using addresses
+        super().__init__()
         self.program_counter = 0x0800 ## internal register; usually 0x0800
-        self.stack_pointer = 0xff  ## internal register, holds address to the stack. range is $0100-$01FF (only 8 bits would do, too)
+        self.stack_pointer = 0xff  ## internal register, holds address to the stack. range is $0100-$01FF
         self.accumulator = 0x00 ## internal register; no in memory
         self.index_x = 0x00
         self.index_y = 0x00
@@ -20,23 +21,78 @@ class CPU(Memory):
 
         ##self.addressing_modes = addressing_modes.AddressingModes()
 
-    def push_stack(self, value):
-        address = 0x01*(0xff + 1) + self.stack_pointer
+    ## To set CPU to a certain stat; Using it for testing/debug purposes only
+    def set_cpu_state(self, pc, s, a, x, y, p, memory_locs):
+        """
+        set the cpu state (all registers), and memory with provided values
+
+        Args:
+            memory_locs (list[tuple[int]]): list of tuples containing memory locations and values
+        """
+        self.program_counter = pc
+        self.stack_pointer = s
+        self.accumulator = a
+        self.index_x = x
+        self.index_y = y
+        self.int_to_status_reg(p)
+
+        for memory_loc in memory_locs:
+            self.write_memory(memory_loc[0], memory_loc[1])
+
+
+    def get_cpu_state(self):
+        """
+        Get the state of the CPU/RAM at any given point
+        """
+        cpu_state = {'pc': self.program_counter,
+                     's': self.stack_pointer,
+                     'a': self.accumulator,
+                     'x': self.index_x,
+                     'y': self.index_y,
+                     'p': self.status_reg_to_int(),
+                     'ram': []
+                     }
+
+
+        for i, val in enumerate(self.memory):
+            if val != 0:
+                cpu_state['ram'].append([i, val])
+
+        return cpu_state
+
+
+
+    def __repr__(self):
+        return  f"PC: {self.program_counter}\nSP: {self.stack_pointer}\nA: {self.accumulator}\nX: {self.index_x}\nY: {self.index_y}"
+
+
+
+    def push_stack(self, value, debug=False):
+        # Set the addresss
+        address = 0x0100 | self.stack_pointer
+
         self.write_memory(address, value)
 
-        self.stack_pointer -= 1
-        if self.stack_pointer < 0x00:
-            self.stack_pointer = 0xff
+        if debug:
+            print(f"pushed {value} to address {address}")
+
+        self.stack_pointer = (self.stack_pointer - 1) & 0xff
+
         return
 
-    def pull_stack(self):
-        address = 0x01*(0xff + 1) + self.stack_pointer
+
+    def pull_stack(self, debug=False):
+        self.stack_pointer = (self.stack_pointer + 1) & 0xff
+
+        address = 0x0100 | self.stack_pointer
         value = self.read_memory(address)
 
-        self.stack_pointer += 1
-        if self.stack_pointer > 0xff:
-            self.stack_pointer = 0xff
+        if debug:
+            print(f"pulled {value} from address {address}")
+
+
         return value
+
 
     def status_reg_to_int(self):
         """
@@ -71,14 +127,14 @@ class CPU(Memory):
     def reset(self):
         ## implement reset...
         ## current questions
-        ## what all the reset? memory? just the registers? only some of the registers?
+        ## what all to reset? memory? just the registers? only some of the registers?
         pass
 
     def read_program_counter(self):
         return self.read_memory(self.program_counter)
 
 
-    def load_program(self, program: bytes):
+    def load_program(self, program: int):
         """
         loads the program into the memory, starting from the program_counter
         """
@@ -86,15 +142,28 @@ class CPU(Memory):
         self.write_memory(self.program_counter, program)
 
 
-    def execute(self):
+    def execute(self, step=False, debug=False):
+        """
+        Execute the program loaded in the memory.
+
+        If step is true, only execute one instruction at a time
+        """
         while True:
             current_instruction = self.read_memory(self.program_counter)
             self.program_counter += 1
+            self.program_counter &= 0xffff ## wrap up to 0
 
-            # TODO: ## lookup instruction, and addressing mode
-            # TODO: address = self.addressing_modes.*funct*(self)
+            instruction, addressmode = OPCODE_TABLE.get(current_instruction)
 
-            # TODO: ## execute instruction
+            address = addressmode(self)
+
+            instruction(self, address)
+
+            if debug:
+                print(f"CPU exectued the instruction {instruction.__name__} with addressmode {addressmode.__name__} at address {address}")
+
+            if step:
+                break
 
 
             ## address = self.addressing_modes.absolute(self)
@@ -104,3 +173,19 @@ class CPU(Memory):
             ## execute instruction (with the parameter)
 
             ## exit condition..?
+
+
+
+    # def step(self):
+    #     """
+    #     Execute one instruction at a time
+    #     """
+    #     current_instruction = self.read_memory(self.program_counter)
+    #     self.program_counter += 1
+    #
+    #     instruction, addressmode = OPCODE_TABLE.get(current_instruction)
+    #
+    #     address = addressmode(self)
+    #
+    #     instruction(self, address)
+

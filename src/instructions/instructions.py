@@ -5,7 +5,16 @@
 3. https://www.masswerk.at/6502/6502_instruction_set.html#ADC
 4. https://tutorial-6502.sourceforge.io/specification/opcodes/#sorted-by-hex-code
 """
-from instructions.helpers import merge_bytes, split_bytes
+from src.instructions.helpers import merge_bytes, split_bytes
+
+def to_signed_int8(value):
+    value &= 0xff
+
+    if value >= 128:
+        return value - 256
+    else:
+        return value
+
 
 class Instructions:
     @staticmethod
@@ -14,13 +23,23 @@ class Instructions:
         add memory to accumulator with query
         affected-flag: N V Z C
         """
-        ## setting zero flag
-        temp = cpu.accumulator + param + cpu.C
-        cpu.accumulator = temp & 0xff
-        cpu.Z = int(cpu.accumulator == 0) ## converting to int necessary? all the checks would work anyway...
+        ## If param is None, fetch value assuming immediate addressing mode
+        if param is None:
+            ## Immediate address
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
+
+        temp = cpu.accumulator + value + cpu.C
+
         cpu.C = int(temp > 0xff)
-        cpu.V = int((~(cpu.accumulator ^ param) & (cpu.accumulator ^ temp)) != 0)
-        cpu.N = int((cpu.accumulator & (1 << 7)) != 0)
+        cpu.V = int(((temp ^ value) & (cpu.accumulator ^ (temp & 0xff))) & 0x80 != 0)
+
+        cpu.accumulator = temp & 0xff
+        cpu.Z = int(cpu.accumulator == 0)
+        cpu.N = (cpu.accumulator >> 7) & 1
         return
 
     @staticmethod
@@ -29,7 +48,15 @@ class Instructions:
         bitwise AND with accumulator
         affects flags: N Z
         """
-        cpu.accumulator = cpu.accumulator & param
+        ## If param is None, fetch value assuming immediate addressing mode
+        if param is None:
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
+
+        cpu.accumulator = cpu.accumulator & value
         cpu.Z = int(cpu.accumulator == 0)
         cpu.N = int((cpu.accumulator & (1 << 7)) != 0)
         return
@@ -40,49 +67,69 @@ class Instructions:
         Arithmetic Shift Left
         affected flags: C Z N
         """
-        ## DONE: check this again!! does it work? what else can be done to identify accumulator vs memory operation
         if param is None:
+            # Use accumulator
             cpu.C = int((cpu.accumulator & 1 << 7) != 0)
             cpu.accumulator = (cpu.accumulator << 1) & 0xff
             cpu.Z = int(cpu.accumulator == 0)
             cpu.N = (cpu.accumulator >> 7) & 1
         else:
-            cpu.C = int((cpu.param & 1 << 7) != 0)
-            shifted = (param << 1) & 0xff
+            value = cpu.read_memory(param)
+            cpu.C = int((value & 1 << 7) != 0)
+            shifted = (value << 1) & 0xff
             cpu.Z = int(shifted == 0)
             cpu.N = (shifted >> 7) & 1
-            return shifted
+
+            cpu.write_memory(param, shifted)
         return
 
     @staticmethod
-    def BCC(cpu, param):
+    def BCC(cpu, _):
         """
         branch if carry clear.
         affected flags:
         """
+        offset = cpu.read_memory(cpu.program_counter)
+
+        cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
+
         if not cpu.C:
             ## param = param if param < 0x80 else param - 0x100
-            cpu.program_counter += param
+            cpu.program_counter += to_signed_int8(offset)
+            cpu.program_counter &= 0xffff
         return
 
     @staticmethod
-    def BCS(cpu, param):
+    def BCS(cpu, _):
         """
         branch if carry set
         """
+        offset = cpu.read_memory(cpu.program_counter)
+
+        cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
+
         if cpu.C:
             ## param = param if param < 0x80 else param - 0x100
-            cpu.program_counter += param
+            cpu.program_counter += to_signed_int8(offset)
+            cpu.program_counter &= 0xffff
         return
 
     @staticmethod
-    def BEQ(cpu, param):
+    def BEQ(cpu, _):
         """
         branch if equal
         """
+        offset = cpu.read_memory(cpu.program_counter)
+
+        cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
+
         if cpu.Z:
             ## param = param if param < 0x80 else param - 0x100
-            cpu.program_counter += param
+            cpu.program_counter += to_signed_int8(offset)
+            cpu.program_counter &= 0xffff
         return
 
     @staticmethod
@@ -91,62 +138,80 @@ class Instructions:
         test BITs
         affects flags: N V Z
         """
-        temp = cpu.accumulator & param
+        value = cpu.read_memory(param)
+        temp = cpu.accumulator & value
 
         cpu.Z = int(temp == 0)
-        cpu.N = (param >> 7) & 1
-        cpu.V = (cpu.accumulator >> 6) & 1
+        cpu.N = (value >> 7) & 1
+        cpu.V = (value >> 6) & 1
         return
 
     @staticmethod
-    def BMI(cpu, param):
+    def BMI(cpu, _):
         """
         branch if minus
         """
+        offset = cpu.read_memory(cpu.program_counter)
+        cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
+
         if cpu.N:
             ## param = param if param < 0x80 else param - 0x100
-            cpu.program_counter += param
+            cpu.program_counter += to_signed_int8(offset)
+            cpu.program_counter &= 0xffff
         return
 
     @staticmethod
-    def BNE(cpu, param):
+    def BNE(cpu, _):
         """
         branch if not equal
         """
+        offset = cpu.read_memory(cpu.program_counter)
+
+        cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
+
         if not cpu.Z:
             ## param = param if param < 0x80 else param - 0x100
-            cpu.program_counter += param
+            cpu.program_counter += to_signed_int8(offset)
+            cpu.program_counter &= 0xffff
         return
 
     @staticmethod
-    def BPL(cpu, param):
+    def BPL(cpu,_):
         """
         branch if positive
         """
+        offset = cpu.read_memory(cpu.program_counter)
+
+        cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
         if not cpu.N:
             ## param = param if param < 0x80 else param - 0x100
-            cpu.program_counter += param
+            cpu.program_counter += to_signed_int8(offset)
+            cpu.program_counter &= 0xffff
         return
 
     @staticmethod
-    def BRK(cpu):
+    def BRK(cpu, _):
         """
         force interrupt
         """
         cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
         ## push program counter to the stack
-        cpu.push_stack(cpu.program_counter // (0xff + 1)) ## high byte
-        cpu.push_stack(cpu.program_counter % (0xff + 1)) ## low byte
+        high_byte, low_byte = split_bytes(cpu.program_counter)
+        cpu.push_stack(high_byte) ## high byte
+        cpu.push_stack(low_byte) ## low byte
 
         ## push processor status to stack
         ## DONE: can it be done with ## PHP(cpu) instead?
-        Instructions.PHP(cpu)
+        Instructions.PHP(cpu, _)
         # processor_status = cpu.status_reg_to_int()
         # cpu.push_stack(processor_status)
 
         ## set interrupt disable flag | NOTE: have conflicting information on which flags to set
         cpu.I = 1
-        cpu.B = 1 ## unsure which flags need to be set
 
         ## load ISR (interrupt service routine) address
         low_byte = cpu.read_memory(0xfffe)
@@ -155,27 +220,39 @@ class Instructions:
         return
 
     @staticmethod
-    def BVC(cpu, param):
+    def BVC(cpu, _):
         """
         branch if overflow clear
         """
+        offset = cpu.read_memory(cpu.program_counter)
+
+        cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
+
         if not cpu.V:
             ## param = param if param < 0x80 else param - 0x100
-            cpu.program_counter += param
+            cpu.program_counter += to_signed_int8(offset)
+            cpu.program_counter &= 0xffff
         return
 
     @staticmethod
-    def BVS(cpu, param):
+    def BVS(cpu, _):
         """
         branch if overflow set
         """
+        offset = cpu.read_memory(cpu.program_counter)
+
+        cpu.program_counter += 1
+        cpu.program_counter &= 0xffff
+
         if cpu.V:
             ## param = param if param < 0x80 else param - 0x100
-            cpu.program_counter += param
+            cpu.program_counter += to_signed_int8(offset)
+            cpu.program_counter &= 0xffff
         return
 
     @staticmethod
-    def CLC(cpu):
+    def CLC(cpu, _):
         """
         clear carry flag
         """
@@ -183,7 +260,7 @@ class Instructions:
         return
 
     @staticmethod
-    def CLD(cpu):
+    def CLD(cpu, _):
         """
         clear decimal mode
         """
@@ -191,7 +268,7 @@ class Instructions:
         return
 
     @staticmethod
-    def CLI(cpu):
+    def CLI(cpu, _):
         """
         clear interrupt disable
         """
@@ -199,7 +276,7 @@ class Instructions:
         return
 
     @staticmethod
-    def CLV(cpu):
+    def CLV(cpu, _):
         """
         clear overflow flag
         """
@@ -212,13 +289,25 @@ class Instructions:
         Compare Accumulator
         flags affected: C Z N
         """
-        result = cpu.accumulator - param
+        if param is None:
+            ## Immediate address
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
 
-        if not result:
+        result = cpu.accumulator - value
+
+        if not result & 0xff:
             cpu.C = 1
             cpu.Z = 1
         elif result > 0:
-            cpu.Z = 1
+            cpu.C = 1
+            cpu.Z = 0
+        else:
+            cpu.C = 0
+            cpu.Z = 0
 
         cpu.N = (result >> 7) & 1
         return
@@ -228,15 +317,29 @@ class Instructions:
         """
         compare Index Register X
         flags affected: Z C N
+        ---
+        param would be None for immediate addressing mode
         """
-        result = cpu.index_x - param
+        ## If param is not None, fetch value assuming immediate addressing mode
+        if param is None:
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
 
-        if not result:
-            cpu.C = 1
-            cpu.Z = 1
-        elif result > 0:
-            cpu.Z = 1
+        result = cpu.index_x - value
 
+        # if not result & 0xff:
+        #     cpu.Z = 1
+        #     cpu.c = 1
+        # elif result > 0:
+        #     cpu.C = 1
+        # # else:
+        # #     cpu.C = 0
+        # #     cpu.Z = 0
+        cpu.C = int(result >= 0)
+        cpu.Z = int(result == 0)
         cpu.N = (result >> 7) & 1
         return
 
@@ -246,14 +349,18 @@ class Instructions:
         compare Index Register Y
         flags affected: Z C N
         """
-        result = cpu.index_y - param
+        ## If param is None, fetch value assuming immediate addressing mode
+        if param is None:
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
 
-        if not result:
-            cpu.C = 1
-            cpu.Z = 1
-        elif result > 0:
-            cpu.Z = 1
+        result = cpu.index_y - value
 
+        cpu.C = int(result >= 0)
+        cpu.Z = int(result == 0)
         cpu.N = (result >> 7) & 1
         return
 
@@ -263,19 +370,21 @@ class Instructions:
         decrement memory
         flags affected: Z N
         """
-        param-= 1
+        value = (cpu.read_memory(param) - 1) & 0xff
+        cpu.write_memory(param, value)
 
-        cpu.Z = int(param == 0)
-        cpu.N = (param >> 7) & 1
-        return param
+        cpu.Z = int(value == 0)
+        cpu.N = (value >> 7) & 1
+        return
 
     @staticmethod
-    def DEX(cpu):
+    def DEX(cpu, _):
         """
         decrement Index Register X
         flags affected: Z N
         """
         cpu.index_x -= 1
+        cpu.index_x &= 0xff
         # if not cpu.index_x:
         #     cpu.Z = 1
         cpu.Z = int(cpu.index_x == 0)
@@ -283,12 +392,14 @@ class Instructions:
         return
 
     @staticmethod
-    def DEY(cpu):
+    def DEY(cpu, _):
         """
         decrement Index Register Y
         flags affected Z N
         """
         cpu.index_y-= 1
+        cpu.index_y &= 0xff
+
         cpu.Z = int(cpu.index_y == 0)
         cpu.N = (cpu.index_y >> 7) & 1
         return
@@ -299,7 +410,16 @@ class Instructions:
         XOR with accumulator and memory value (bit by bit)
         flags affected: Z N
         """
-        cpu.accumulator = cpu.accumulator ^ param
+        ## If param is None, fetch value assuming immediate addressing mode
+        if param is None:
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
+
+        cpu.accumulator = cpu.accumulator ^ value
+
         # if not cpu.accumulator:
         #     cpu.Z = 1
         cpu.Z = int(cpu.accumulator == 0)
@@ -312,31 +432,37 @@ class Instructions:
         increment memory
         flags affected: Z N
         """
-        param += 1
+        value = cpu.read_memory(param)
+        value += 1
+        value &= 0xff
+
+        cpu.write_memory(param, value)
         # if not param:
         #     cpu.Z = 1
-        cpu.Z = int(param == 0)
-        cpu.N = (param >> 7) & 1
-        return param ## to save to the memory location
+        cpu.Z = int(value == 0)
+        cpu.N = (value >> 7) & 1
+        return ## to save to the memory location
 
     @staticmethod
-    def INX(cpu):
+    def INX(cpu, _):
         """
         increment Index Register X
         flags affected: Z N
         """
         cpu.index_x += 1
+        cpu.index_x &= 0xff
         cpu.Z = int(cpu.index_x == 0)
         cpu.N = (cpu.index_x >> 7) & 1
         return
 
     @staticmethod
-    def INY(cpu):
+    def INY(cpu, _):
         """
         increment Index Register Y
         flags affected: Z N
         """
         cpu.index_y += 1
+        cpu.index_y &= 0xff
         cpu.Z = int(cpu.index_y == 0)
         cpu.N = (cpu.index_y >> 7) & 1
         return
@@ -354,7 +480,7 @@ class Instructions:
         """
         Jump to Subroutine
         """
-        high_byte, low_byte = split_bytes(cpu.program_counter + 2)
+        high_byte, low_byte = split_bytes(cpu.program_counter - 1)
         cpu.push_stack(high_byte)
         cpu.push_stack(low_byte)
         cpu.program_counter = param
@@ -366,7 +492,15 @@ class Instructions:
         Load Accumulator
         flags affected: Z N
         """
-        cpu.accumulator = param
+        if param is None:
+            # Immediate address
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
+
+        cpu.accumulator = value
         # if not cpu.accumulator:
         #     cpu.Z = 1
         cpu.Z = int(cpu.accumulator == 0)
@@ -379,7 +513,15 @@ class Instructions:
         Load Index Register X
         flags affected: Z N
         """
-        cpu.index_x = param
+        if param is None:
+            # Immediate address
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
+
+        cpu.index_x = value
         # if not cpu.index_x:
         #     cpu.Z = 1
         cpu.Z = int(cpu.index_x == 0)
@@ -392,7 +534,15 @@ class Instructions:
         Load Index Register Y
         flags affected: Z N
         """
-        cpu.index_y = param
+        ## If param is None, fetch value assuming immediate addressing mode
+        if param is None:
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
+
+        cpu.index_y = value
         # if not cpu.index_y:
         #     cpu.Z = 1
         cpu.Z = int(cpu.index_y == 0)
@@ -414,17 +564,19 @@ class Instructions:
             cpu.Z = int(cpu.accumulator == 0)
             cpu.N = (cpu.accumulator >> 7) & 1
         else:
-            cpu.C = param & 1
-            param >>= 1
+            value = cpu.read_memory(param)
+            cpu.C = value & 1
+            value >>= 1
             # if not param:
             #     cpu.Z = 1
-            cpu.Z = int(param == 0)
-            cpu.N = (param >> 7) & 1
-            return param
+            cpu.Z = int(value == 0)
+            cpu.N = (value >> 7) & 1
+
+            cpu.write_memory(param, value)
         return
 
     @staticmethod
-    def NOP(cpu):
+    def NOP(cpu, _):
         """
         No Operation
         """
@@ -436,7 +588,16 @@ class Instructions:
         Logical Inclusive OR
         flags affected: Z N
         """
-        cpu.accumulator |= param
+        if param is None:
+            # Immediate address
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
+
+        cpu.accumulator |= value
+        cpu.accumulator &= 0xff
         # if not cpu.accumulator:
         #     cpu.Z = 1
         cpu.Z = int(cpu.accumulator == 0)
@@ -444,7 +605,7 @@ class Instructions:
         return
 
     @staticmethod
-    def PHA(cpu):
+    def PHA(cpu, _):
         """
         Push Accumulator
         """
@@ -452,16 +613,19 @@ class Instructions:
         return
 
     @staticmethod
-    def PHP(cpu):
+    def PHP(cpu, _):
         """
         Push Processor Status to Stack
         """
+        temp_b = cpu.B
+        cpu.B = 1
         processor_status = cpu.status_reg_to_int()
         cpu.push_stack(processor_status)
+        cpu.B = temp_b
         return
 
     @staticmethod
-    def PLA(cpu):
+    def PLA(cpu, _):
         """
         Pull Accumulator
         flags affected: Z N
@@ -474,12 +638,13 @@ class Instructions:
         return
 
     @staticmethod
-    def PLP(cpu):
+    def PLP(cpu, _):
         """
         Pull Processor Status Register from stack
         """
         flags = cpu.pull_stack()
         cpu.int_to_status_reg(flags)
+        cpu.B = 0
         return
 
     @staticmethod
@@ -491,15 +656,19 @@ class Instructions:
         temp_c = cpu.C
         if param is None:
             cpu.C = (cpu.accumulator >> 7) & 1
-            cpu.accumulator = (cpu.accumulator << 1) | temp_c
-            cpu.Z = int(cpu.accumulator == 1)
+            cpu.accumulator = ((cpu.accumulator << 1) | temp_c) & 0xff
+            cpu.Z = int(cpu.accumulator == 0)
             cpu.N = (cpu.accumulator >> 7) & 1
         else:
-            cpu.C = (param >> 7) & 1
-            param = (param << 1) | temp_c
-            cpu.N = (param >> 7) & 1
-            cpu.Z = int(param == 0)
-            return param
+            value = cpu.read_memory(param)
+
+            cpu.C = (value >> 7) & 1
+            value = (value << 1) | temp_c
+            value &= 0xff
+            cpu.N = (value >> 7) & 1
+            cpu.Z = int(value == 0)
+
+            cpu.write_memory(param, value)
         return
 
     @staticmethod
@@ -516,23 +685,22 @@ class Instructions:
             cpu.Z = int(cpu.accumulator == 0)
             cpu.N = (cpu.accumulator >> 7) & 1
         else:
-            cpu.C = param & 1
-            param = (param >> 1) | (temp_c << 7)
-            cpu.Z = int(param == 0)
-            cpu.N = (param >> 7) & 1
-            return param
+            value = cpu.read_memory(param)
+            cpu.C = value & 1
+            value = (value >> 1) | (temp_c << 7)
+            cpu.Z = int(value == 0)
+            cpu.N = (value >> 7) & 1
+            cpu.write_memory(param, value)
         return
 
     @staticmethod
-    def RTI(cpu):
+    def RTI(cpu, _):
         """
         Return From Interrupt
         """
         ## pull processor status
-        ##Done: use PLP instead? ## PLP(cpu)
-        # flags = cpu.pull_stack()
-        # cpu.int_to_status_reg(flags)
-        Instructions.PLP(cpu)
+        Instructions.PLP(cpu, _)
+
 
         ## pull program-counter
         low_byte = cpu.pull_stack()
@@ -541,7 +709,7 @@ class Instructions:
         return
 
     @staticmethod
-    def RTS(cpu):
+    def RTS(cpu, _):
         """
         Return from subroutine
         """
@@ -557,16 +725,29 @@ class Instructions:
         Subtract with Carry
         flags affected: C Z N
         """
-        cpu.accumulator = temp = cpu.accumulator - param - (1 - cpu.C) ## 1-cpu.c to get a NOT of C
+        ## If param is None, fetch value assuming immediate addressing mode
+        if param is None:
+            value = cpu.read_program_counter()
+            cpu.program_counter += 1
+            cpu.program_counter &= 0xffff
+        else:
+            value = cpu.read_memory(param)
+
+        temp = cpu.accumulator - value - (1 - cpu.C) ## 1-cpu.c to get a NOT of C
+
         # if not cpu.accumulator:
         #     cpu.Z = 1
+        cpu.C = 1 if (temp >= 0) else 0 ## Followed https://www.pagetable.com/c64ref/6502/?tab=2#SBC
+        cpu.V = int(((cpu.accumulator ^ value) & (cpu.accumulator ^ (temp & 0xff))) & 0x80 != 0)
+
+        cpu.accumulator = temp & 0xff
+
         cpu.Z = int(cpu.accumulator == 0)
-        cpu.V = int((~(cpu.accumulator ^ param) & (cpu.accumulator ^ temp)) != 0)
         cpu.N = (cpu.accumulator >> 7) & 1
         return
 
     @staticmethod
-    def SEC(cpu):
+    def SEC(cpu, _):
         """
         Set Carry Flag
         """
@@ -574,7 +755,7 @@ class Instructions:
         return
 
     @staticmethod
-    def SED(cpu):
+    def SED(cpu, _):
         """
         set decimal flag
         """
@@ -582,7 +763,7 @@ class Instructions:
         return
 
     @staticmethod
-    def SEI(cpu):
+    def SEI(cpu, _):
         """
         set interrupt disable
         """
@@ -614,7 +795,7 @@ class Instructions:
         return
 
     @staticmethod
-    def TAX(cpu):
+    def TAX(cpu, _):
         """
         Transfer Accumulator to Index Register X
         flags affected: Z N
@@ -627,7 +808,7 @@ class Instructions:
         return
 
     @staticmethod
-    def TAY(cpu):
+    def TAY(cpu, _):
         """
         Transfer Accumulator to Index Register Y
         flags affected: Z N
@@ -640,7 +821,7 @@ class Instructions:
         return
 
     @staticmethod
-    def TSX(cpu):
+    def TSX(cpu, _):
         """
         Transfer Stack Pointer to Index Register X
         flags affected: Z N
@@ -653,7 +834,7 @@ class Instructions:
         return
 
     @staticmethod
-    def TXA(cpu):
+    def TXA(cpu, _):
         """
         Transfer Index Register X to A
         flags affected: Z N
@@ -666,7 +847,7 @@ class Instructions:
         return
 
     @staticmethod
-    def TXS(cpu):
+    def TXS(cpu, _):
         """
         Transfer Index Register X to Stack Pointer
         """
@@ -674,7 +855,7 @@ class Instructions:
         return
 
     @staticmethod
-    def TYA(cpu):
+    def TYA(cpu, _):
         """
         Transfer Index Register Y to Accumulator
         flags affected: Z N
