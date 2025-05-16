@@ -4,7 +4,6 @@
 #+UPDATED: May 14, 2025
 
 * Important Links
- + [[https://www.notion.so/NES-Emulator-736a83e705f74e9e8a626a243e6076d4][Notion Documentation]]
  + [[https://bugzmanov.github.io/nes_ebook/chapter_1.html][Guide: NES Emulator in Rust]]
  + [[https://www.nesdev.org/NESDoc.pdf][NES Documentation]]
  + [[https://www.nesdev.org/wiki/NES_reference_guide][NES Dev Wiki]]
@@ -12,6 +11,7 @@
 
 * 🚧 WIP 🚧
  - Have tested all instructions for 6502 with test sets from [[https://github.com/SingleStepTests/65x02][this repo.]]. All test cases pass.
+ - The snake-test runs fine. Code for the snake game taken from [[https://gist.github.com/wkjagt/9043907][here]]. Run ~./tests/snake_test.py~.
  - Have not implemented the unofficial opcodes for nes. Will get to them, after the everything else is set.
 
-this project is to learn harware emulation. I chose NES, because it has some of my favorite games. Any suggestions to improve the code are welcome.
+This project is to learn hardware emulation. I chose NES, because it has some of my favorite games. Any suggestions to improve the project are welcome.
